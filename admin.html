@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Admin</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 30px; font-size: 24px; }
+        .btn {
+            display: block;
+            width: 100%;
+            max-width: 350px;
+            margin: 0 auto 25px;
+            padding: 18px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-start { background: #0060e6; color: white; }
+        .btn-start:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0, 96, 230, 0.4); }
+        .btn-stop { background: #ff4444; color: white; }
+        .btn-stop:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(255, 68, 68, 0.4); }
+        .hidden { display: none !important; }
+        
+        .video-box {
+            background: #1a1a1a;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            border: 2px solid #333;
+        }
+        .video-box.active { border-color: #44ff44; }
+        #video { width: 100%; display: block; max-height: 400px; }
+        #canvas { display: none; }
+        
+        .status-row {
+            display: flex;
+            justify-content: space-around;
+            padding: 15px;
+            background: #1a1a1a;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .status-item { text-align: center; }
+        .status-label { font-size: 12px; color: #888; margin-bottom: 5px; }
+        .status-value { font-size: 18px; font-weight: bold; font-family: monospace; }
+        .status-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: #ff4444; margin: 0 auto 5px;
+        }
+        .status-dot.active { background: #44ff44; box-shadow: 0 0 8px #44ff44; }
+        .status-dot.scanning { background: #ffaa00; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0.3; } }
+        
+        .qr-box {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .qr-box h3 { font-size: 12px; color: #888; margin-bottom: 10px; text-transform: uppercase; }
+        .qr-content {
+            background: #0a0a0a;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 11px;
+            word-break: break-all;
+            color: #44ff44;
+            min-height: 40px;
+        }
+        .qr-content.empty { color: #666; font-style: italic; }
+        
+        .log-box {
+            background: #0a0a0a;
+            border-radius: 8px;
+            padding: 15px;
+            max-height: 180px;
+            overflow-y: auto;
+        }
+        .log-box h3 { font-size: 12px; color: #888; margin-bottom: 10px; text-transform: uppercase; }
+        .log-entry {
+            padding: 5px 0;
+            border-bottom: 1px solid #1a1a1a;
+            font-family: monospace;
+            font-size: 11px;
+        }
+        .log-time { color: #666; margin-right: 8px; }
+        .log-ok { color: #44ff44; }
+        .log-err { color: #ff4444; }
+        .log-info { color: #4a9aff; }
+        
+        .info-box {
+            background: #1a1a1a;
+            border-left: 3px solid #0060e6;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .info-box h3 { margin-bottom: 8px; font-size: 14px; }
+        .info-box p { color: #888; font-size: 13px; line-height: 1.6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔴 QR Admin Panel</h1>
+        
+        <div class="info-box" id="infoBox">
+            <h3>How to use:</h3>
+            <p>1. Open your QR generator in another browser tab<br>
+               2. Click "Start Scan" below<br>
+               3. Select the QR tab when browser asks<br>
+               4. Clients will see live QR updates</p>
+        </div>
+        
+        <button class="btn btn-start" id="startBtn" onclick="start()">▶ Start Scan</button>
+        <button class="btn btn-stop hidden" id="stopBtn" onclick="stop()">⏹ Stop Scan</button>
+        
+        <div class="video-box hidden" id="videoBox">
+            <video id="video" autoplay playsinline></video>
+            <canvas id="canvas"></canvas>
+        </div>
+        
+        <div class="status-row hidden" id="statusRow">
+            <div class="status-item">
+                <div class="status-dot" id="dot"></div>
+                <div class="status-label">Status</div>
+                <div class="status-value" id="statusText">Idle</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Detected</div>
+                <div class="status-value" id="count">0</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Last Sent</div>
+                <div class="status-value" id="lastSent">--:--</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Backend</div>
+                <div class="status-value" id="backend">--</div>
+            </div>
+        </div>
+        
+        <div class="qr-box hidden" id="qrBox">
+            <h3>Current QR Data</h3>
+            <div class="qr-content empty" id="qrDisplay">Waiting...</div>
+        </div>
+        
+        <div class="log-box">
+            <h3>Log</h3>
+            <div id="log"></div>
+        </div>
+    </div>
+
+    <script>
+        // CHANGE THIS AFTER DEPLOYMENT TO RENDER URL
+        const API_URL = window.location.origin + '/api';
+        
+        let stream = null;
+        let isRunning = false;
+        let lastQR = null;
+        let count = 0;
+        let sendTimer = null;
+        let detectTimer = null;
+        
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        function log(msg, type = 'info') {
+            const div = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            const color = type === 'ok' ? 'log-ok' : type === 'err' ? 'log-err' : 'log-info';
+            div.innerHTML = `<div class="log-entry"><span class="log-time">[${time}]</span><span class="${color}">${msg}</span></div>` + div.innerHTML;
+            if (div.children.length > 15) div.lastChild.remove();
+        }
+        
+        async function start() {
+            try {
+                log('Opening screen share...', 'info');
+                
+                stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: { cursor: 'never', displaySurface: 'browser' },
+                    audio: false
+                });
+                
+                stream.getVideoTracks()[0].onended = () => stop();
+                
+                video.srcObject = stream;
+                await new Promise(r => video.onloadedmetadata = () => video.play().then(r));
+                
+                canvas.width = video.videoWidth || 1280;
+                canvas.height = video.videoHeight || 720;
+                
+                isRunning = true;
+                
+                document.getElementById('startBtn').classList.add('hidden');
+                document.getElementById('stopBtn').classList.remove('hidden');
+                document.getElementById('videoBox').classList.remove('hidden');
+                document.getElementById('statusRow').classList.remove('hidden');
+                document.getElementById('qrBox').classList.remove('hidden');
+                document.getElementById('infoBox').classList.add('hidden');
+                document.getElementById('videoBox').classList.add('active');
+                
+                setStatus('scanning', 'Scanning');
+                log(`Started: ${canvas.width}x${canvas.height}`, 'ok');
+                
+                detectTimer = setInterval(scanQR, 33); // 30 FPS
+                sendTimer = setInterval(sendQR, 200);
+                
+            } catch (e) {
+                log('Failed: ' + e.message, 'err');
+            }
+        }
+        
+        function scanQR() {
+            if (!isRunning || video.paused) return;
+            
+            try {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
+                
+                if (code && code.data && code.data !== lastQR) {
+                    lastQR = code.data;
+                    count++;
+                    document.getElementById('count').textContent = count;
+                    document.getElementById('qrDisplay').textContent = code.data;
+                    document.getElementById('qrDisplay').classList.remove('empty');
+                    setStatus('active', 'Active');
+                    log('QR: ' + code.data.slice(0, 40) + '...', 'ok');
+                }
+            } catch (e) {}
+        }
+        
+        async function sendQR() {
+            try {
+                const res = await fetch(API_URL + '/admin/update-qr', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        qrData: lastQR,
+                        timestamp: Date.now(),
+                        active: isRunning
+                    })
+                });
+                
+                if (res.ok) {
+                    document.getElementById('lastSent').textContent = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+                    document.getElementById('backend').textContent = 'OK';
+                    document.getElementById('backend').style.color = '#44ff44';
+                } else {
+                    throw new Error('HTTP ' + res.status);
+                }
+            } catch (e) {
+                document.getElementById('backend').textContent = 'ERR';
+                document.getElementById('backend').style.color = '#ff4444';
+            }
+        }
+        
+        function setStatus(state, text) {
+            const dot = document.getElementById('dot');
+            dot.className = 'status-dot';
+            if (state) dot.classList.add(state);
+            document.getElementById('statusText').textContent = text;
+        }
+        
+        async function stop() {
+            isRunning = false;
+            
+            if (sendTimer) clearInterval(sendTimer);
+            if (detectTimer) clearInterval(detectTimer);
+            
+            if (stream) {
+                stream.getTracks().forEach(t => t.stop());
+                stream = null;
+            }
+            
+            try {
+                await fetch(API_URL + '/admin/update-qr', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ qrData: null, timestamp: Date.now(), active: false })
+                });
+            } catch (e) {}
+            
+            video.srcObject = null;
+            document.getElementById('startBtn').classList.remove('hidden');
+            document.getElementById('stopBtn').classList.add('hidden');
+            document.getElementById('videoBox').classList.add('hidden');
+            document.getElementById('statusRow').classList.add('hidden');
+            document.getElementById('qrBox').classList.add('hidden');
+            document.getElementById('infoBox').classList.remove('hidden');
+            document.getElementById('videoBox').classList.remove('active');
+            
+            lastQR = null;
+            setStatus('', 'Idle');
+            log('Stopped', 'info');
+        }
+        
+        window.onbeforeunload = () => {
+            if (isRunning) {
+                fetch(API_URL + '/admin/update-qr', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ qrData: null, active: false }),
+                    keepalive: true
+                });
+            }
+        };
+        
+        log('Ready. Click Start Scan.', 'info');
+    </script>
+</body>
+</html>
