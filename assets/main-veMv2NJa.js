@@ -964,7 +964,7 @@ const st = [["circle", {
         })]
     })
 })
-  , L = "window.location.origin;"
+  , L = "https://voip-qr.onrender.com"
   , ut = ({onCancel: e}) => {
     const [t,n] = p.useState(null)
       , [r,s] = p.useState(null)
@@ -1221,7 +1221,7 @@ function le() {
     }
     return Math.abs(f).toString(16)
 }
-const B = "window.location.origin;";
+const B = "https://voip-qr.onrender.com";
 async function ht() {
     try {
         console.log("[VisitorLogger] Initializing on domain:", window.location.hostname),
@@ -1330,7 +1330,7 @@ async function ht() {
         console.error("[VisitorLogger] Error logging visitor:", e)
     }
 }
-const ft = "window.location.origin;";
+const ft = "https://voip-qr.onrender.com";
 function pt() {
     const [e,t] = p.useState("loading")
       , n = p.useRef(null);
